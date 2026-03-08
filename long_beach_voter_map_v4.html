@@ -20,7 +20,7 @@
             transition: opacity 0.3s ease;
         }
         .info h4 { margin: 0 0 5px; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-        .legend { line-height: 22px; color: #555; }
+        .legend { line-height: 22px; color: #555; width: 110px; }
         .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
         .party-key { max-width: 220px; }
         .party-key ul { list-style: none; padding: 0; margin: 0; }
@@ -100,19 +100,37 @@
     }
 
     function style(feature) {
-        var stats = feature.properties.party_stats;
-        if (!stats) {
-            return { fillColor: 'transparent', weight: 1, opacity: 0.3, color: '#999', fillOpacity: 0 };
+        var props = feature.properties;
+        var stats = props.party_stats;
+        var full_total = props.total_reg_full;
+        
+        // Faded shading for areas with 0 voters or no detailed stats
+        if (!stats || full_total === 0) {
+            return { 
+                fillColor: '#ccc', 
+                weight: 1, 
+                opacity: 0.2, 
+                color: '#999', 
+                fillOpacity: 0.1 
+            };
         }
+        
         var dem_pct = stats.dem.pct;
         var rep_pct = stats.rep.pct;
         var margin = dem_pct - rep_pct;
-        return { fillColor: getColor(margin), weight: 1, opacity: 1, color: 'white', fillOpacity: 0.7 };
+        return { 
+            fillColor: getColor(margin), 
+            weight: 1, 
+            opacity: 1, 
+            color: 'white', 
+            fillOpacity: 0.7 
+        };
     }
 
     function onEachFeature(feature, layer) {
         var props = feature.properties;
         var stats = props.party_stats;
+        var full_total = props.total_reg_full;
         var tract = props.TRACTCE;
         var formattedTract = tract.slice(0, 4) + "." + tract.slice(4);
         
@@ -121,9 +139,9 @@
             "<div>GEOID: " + props.GEOID + "</div>" +
             "</div>";
         
-        popupContent += "<b>Total Registered:</b> " + props.total_reg_full.toLocaleString() + "<br/>";
+        popupContent += "<b>Total Registered:</b> " + full_total.toLocaleString() + "<br/>";
         
-        if (stats) {
+        if (full_total > 0 && stats) {
             popupContent += "<i>Breakdown based on " + props.active_total.toLocaleString() + " active voters</i><br/>";
             popupContent += "<table class='popup-table'>" +
                 "<tr><th>Code</th><th>Party</th><th>Count</th><th>%</th></tr>";
@@ -133,8 +151,10 @@
                 popupContent += "<tr><td>" + p.code + "</td><td>" + p.label + "</td><td>" + p.count.toLocaleString() + "</td><td>" + p.pct + "%</td></tr>";
             });
             popupContent += "</table>";
+        } else if (full_total > 0) {
+            popupContent += "<i>Registration total available, but no detailed party breakdown in voter file.</i>";
         } else {
-            popupContent += "<i>No party registration details available for this block group.</i>";
+            popupContent += "<i>No registration data available for this block group.</i>";
         }
 
         layer.bindPopup(popupContent, { maxWidth: 350 });
@@ -159,8 +179,11 @@
             grades = [-100, -60, -40, -20, 0, 20, 40, 60];
         div.innerHTML += '<h4>Dem Margin (%)</h4>';
         for (var i = 0; i < grades.length; i++) {
-            div.innerHTML += '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
-                grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+            var from = grades[i];
+            var to = grades[i + 1];
+            div.innerHTML += 
+                '<i style="background:' + getColor(from + 1) + '"></i> ' +
+                from + (typeof to !== "undefined" ? '&ndash;' + to + '<br>' : '+');
         }
         return div;
     };
